@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Area Chart</title>
+</head>
+<body>
+	<style>
+
+		body {
+		  font: 10px sans-serif;
+		}
+
+		#viz {
+			width: 80%;
+			overflow-x: scroll;
+			border: 1px solid black;
+		}
+
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		.x.axis g:nth-child(12n + 9) {
+			font-weight: bold;
+			font-color: red;
+		}
+
+		.x.axis g:nth-child(12n + 9) > text {
+			fill: red;
+		}
+
+		.area {
+		  fill: steelblue;
+		}
+
+		.overlay {
+		  fill: none;
+		  pointer-events: all;
+		}
+
+		.focus circle {
+		  fill: none;
+		  stroke: black;
+		}
+
+		.focus text {
+			font-size: 14px;
+			font-weight: bold;
+		}
+
+	</style>
+	<div id="viz"></div>
+	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>	
+
+	<script>
+
+		var margin = {top: 20, right: 100, bottom: 30, left: 50},
+		    width = 3060 - margin.left - margin.right,
+		    height = 500 - margin.top - margin.bottom;
+
+		var parseDate = d3.time.format("%m/%d/%y").parse,
+				formatDate = d3.time.format("%m/%d/%y"),
+				bisectDate = d3.bisector(function(d) { return d.date }).left,
+				formatValue = d3.format(",.2f"),
+				formatCurrency = function(d) { return "$" + formatValue(d); };
+				formatDateObj = function(d) { return formatDate(d); };
+
+		var xScale = d3.time.scale()
+							.range([0,width]);
+
+		var yScale = d3.scale.linear()
+										.range([height, 0]);
+
+		var xAxis = d3.svg.axis()
+									.scale(xScale)
+									.orient('bottom')
+									.ticks(50);
+
+		var yAxis = d3.svg.axis()
+									.scale(yScale)
+									.orient('left');
+
+		var yAxis2 = d3.svg.axis()
+									.scale(yScale)
+									.orient('right');
+
+		// prepares to create area underneath line -- later appended to path
+		var area = d3.svg.area()
+									.x(function(d) { return xScale(d.date); })
+									.y0(height)
+									.y1(function(d){ return yScale(d.close); });
+
+		var svg = d3.select('#viz')
+								.append('svg')
+									.attr('width', width + margin.left + margin.right)
+									.attr('height', height + margin.top + margin.bottom)
+								.append('g')
+									.attr('transform', 'translate(' + margin.left + "," + margin.top + ")");
+
+		d3.csv('market.csv', function(error, data) { 
+			data.forEach(function(d) {
+				d.date = parseDate(d.date);
+				d.close = +d.close;  // converts number string to number
+			});
+
+			// have to include this for the hover effect
+			data.sort(function(a, b) {
+		    return a.date - b.date;
+		  });
+
+			xScale.domain(d3.extent(data, function(d) { return d.date }));
+			yScale.domain([0, d3.max(data, function(d) { return d.close })]);
+
+			// area path
+			// use 'datum' b/c it's binding to single svg element, not series
+			// could also use data([data]) (single) but not data(data) (multiple)
+			svg.append('path')
+					.datum(data)
+					.attr('class', 'area')
+					.attr('d', area);
+
+			svg.append('g')
+				.attr('class', 'x axis')
+				.attr('transform', 'translate(0,' + height + ")")
+				.call(xAxis);
+
+			svg.append('g')
+				.attr('class', 'y axis')
+				.call(yAxis)
+			.append('text')
+				.attr('transform', 'rotate(-90)')
+				.attr('y', 6)
+				.attr('dy', '0.71em')
+				.style('text-anchor', 'end')
+				.text('Price ($)');
+
+			svg.append('g')
+				.attr('class', 'y axis')
+				.attr("transform", "translate(" + width + " ,0)")
+				.call(yAxis2)
+			.append('text')
+				.attr('transform', 'rotate(-90) translate(-230 ,45)')
+				.attr('y', -6)
+				.attr('dy', '0.71em')
+				.style('text-anchor', 'end')
+				.text('Price ($)');
+
+			var focus = svg.append('g')
+					.attr('class', 'focus')
+					.style('display', 'none');
+			
+			focus.append('circle')
+					.attr('r', 4);
+
+			focus.append('text')
+					.attr('class', 'hover-close')
+					.attr('x', 12)
+					.attr('dy', '.45em');
+
+			focus.append('text')
+					.attr('class', 'hover-date')
+					.attr('x', 12)
+					.attr('y', 18)
+					.attr('dy', '.45em');
+
+			svg.append('rect')
+				.attr('class', 'overlay')
+				.attr('width', width)
+				.attr('height', height)
+				.on('mouseover', function() { focus.style('display', null); })
+				.on('mouseout', function() { focus.style('display', 'none'); })
+				.on('mousemove', mousemove);
+
+			function mousemove() {
+				// get mouse location and invert it to get x data @ mouse 
+				// xScale and yScale called as functions w/ data passed as parameter returns pixel location
+				var x0 = xScale.invert(d3.mouse(this)[0]),
+						i = bisectDate(data, x0, 1),
+						d0 = data[i - 1],
+						d1 = data[i],
+						d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+				focus.attr('transform', 'translate(' + xScale(d.date) + "," + yScale(d.close) + ")");
+				focus.select('text.hover-close').text(formatCurrency(d.close));
+				focus.select('text.hover-date').text(formatDateObj(d.date));
+			}
+
+		});
+
+
+
+	</script>
+
+</body>
+</html>
