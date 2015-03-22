@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Unaffiliated</title>
+
+	<style>
+	
+		#viz {
+			margin: 50px 0 0 10px;
+		}
+		
+		.bar {
+		  fill: steelblue;
+		}
+
+		.bar:hover {
+		  fill: brown;
+		}
+
+		.axis {
+		  font: 12px sans-serif;
+		}
+
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		.x.axis path {
+		  display: none;
+		}
+
+		.d3-tip {
+		  line-height: 1;
+		  font-weight: bold;
+		  padding: 12px;
+		  background: rgba(0, 0, 0, 0.8);
+		  color: #fff;
+		  border-radius: 2px;
+		}
+
+		/* Creates a small triangle extender for the tooltip */
+		.d3-tip:after {
+		  box-sizing: border-box;
+		  display: inline;
+		  font-size: 10px;
+		  width: 100%;
+		  line-height: 1;
+		  color: rgba(0, 0, 0, 0.8);
+		  content: "\25BC";
+		  position: absolute;
+		  text-align: center;
+		}
+
+		/* Style northward tooltips differently */
+		.d3-tip.n:after {
+		  margin: 1px 0 0 0;
+		  top: 100%;
+		  left: 0;
+		}
+
+		.line {
+		  fill: none;
+		  stroke: #444;
+		  stroke-width: 1.5px;
+		}
+
+	</style>
+
+</head>
+<body>
+
+	<div id="viz"></div>
+	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+	<script>
+
+		var margin = {top: 20, right: 20, bottom: 130, left: 40},
+		    width = 960 - margin.left - margin.right,
+		    height = 500 - margin.top - margin.bottom;
+
+		var xScale = d3.scale.ordinal()
+										.rangeRoundBands([0, width], 0.1);
+
+		var yScale = d3.scale.linear()
+										.range([height, 0]);
+
+		var xScale2 = d3.scale.ordinal()
+  									.rangeBands([0, width], 0);
+
+		var xAxis = d3.svg.axis()
+									.scale(xScale)
+									.orient('bottom');
+
+		var yAxis = d3.svg.axis()
+									.scale(yScale)
+									.orient('left')
+									.ticks(10);
+
+		var svg = d3.select('#viz')
+								.append('svg')
+									.attr('width', width + margin.left + margin.right)
+									.attr('height', height + margin.top + margin.bottom)
+								.append('g')
+									.attr('transform', 'translate(' + margin.left + "," + margin.top +")");
+
+		var tip = d3.tip()
+							  .attr('class', 'd3-tip')
+							  .offset([-8, 0])
+							  .html(function(d) {
+							    return "<strong>Percentage:</strong> <span style='color:red'>" + parseFloat(d.rate) + "%</span>"; });
+
+		svg.call(tip);
+
+		d3.csv('data.csv', function(error, data){
+			console.log(data);
+
+			data.forEach( function(d) { console.log(typeof(+d.rate)) });
+
+			console.log(typeof(data[3]['rate']));
+
+			xScale.domain(data.map(function(d) { return d.city }));
+			xScale2.domain(data.map(function(d) { return d.city; }));
+			yScale.domain([0, d3.max(data, function(d) { return d.rate })]);
+
+			svg.append('g')
+				.attr('class', 'x axis')
+				.attr('transform', 'translate(0,' + height + ")")
+				.call(xAxis)
+				.selectAll("text")
+					.style("text-anchor", "end")
+	          .attr("dx", "-.8em")
+	          .attr("dy", ".15em")
+	          .attr("transform", function(d) { return "rotate(-65)" });
+
+			svg.append('g')
+					.attr('class', 'y axis')
+					.call(yAxis);
+
+      var line = d3.svg.line()
+    		.x(function(d, i) { 
+      		return xScale2(d.city) + i; })
+    		.y(function(d, i) { return yScale(data[0]['rate']) });
+			
+			var rects = svg.selectAll('rect')
+						.data(data)
+						.enter()
+						.append('rect')
+						.attr('class', 'bar')
+						.attr('x', function(d) { return xScale(d.city); })
+						.attr('y', function(d) { return yScale(d.rate); })
+						.attr('width', xScale.rangeBand())
+						.attr('height', function(d) { return height - yScale(d.rate); })
+						.on('mouseover', tip.show)
+      			.on('mouseout', tip.hide);
+
+      svg.append("path")
+      	.datum(data)
+      	.attr("class", "line")
+      	.attr("d", line);
+
+		});
+
+
+
+
+	</script>
+	
+</body>
+</html>
